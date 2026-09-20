@@ -4,7 +4,7 @@ A local-first dashboard for understanding how pull requests move from creation t
 
 ## Current status
 
-Project planning and documentation only. The application and Docker setup have not been implemented, and no GitHub repositories are connected yet.
+The local Apache DevLake Docker Compose environment is configured. The custom application has not been implemented, and no GitHub repositories are connected yet.
 
 ## Planned architecture
 
@@ -51,16 +51,49 @@ These definitions are proposals to validate against the available DevLake data. 
 
 ## Implementation plan
 
-1. Add a reproducible local DevLake Docker Compose setup using a pinned release, persistent volumes, and an example environment file without secrets.
-2. Connect one GitHub repository through the DevLake configuration UI and import a limited historical range.
-3. Inspect the collected schema and verify the proposed metrics against real PRs.
-4. Choose the application stack and implement a backend with read-only database access.
-5. Build the dashboard filters, metric cards, trends, and PR table.
-6. Validate calculations and document local development commands.
+1. Connect one GitHub repository through the DevLake configuration UI and import a limited historical range.
+2. Inspect the collected schema and verify the proposed metrics against real PRs.
+3. Choose the application stack and implement a backend with read-only database access.
+4. Build the dashboard filters, metric cards, trends, and PR table.
+5. Validate calculations and document local development commands.
 
 ## Local setup
 
-Docker Desktop with Docker Compose is the planned prerequisite. Project-specific startup commands will be added when the infrastructure is implemented.
+Docker Desktop with Docker Compose is required. The configuration pins Apache DevLake to `v1.0.3-beta17`, stores MySQL and Grafana data in named volumes, and only exposes the browser interfaces on the local machine.
+
+Create your private environment file and replace every placeholder with a unique value:
+
+```powershell
+Copy-Item .env.example .env
+```
+
+`ENCRYPTION_SECRET` must contain exactly 128 uppercase ASCII letters. Keep it safe and stable: DevLake uses it to encrypt stored GitHub tokens and other credentials.
+
+Start the services:
+
+```powershell
+docker compose up -d
+```
+
+Then open:
+
+- DevLake configuration: <http://localhost:4000>
+- Grafana dashboards: <http://localhost:3002>
+
+Check service state and logs with:
+
+```powershell
+docker compose ps
+docker compose logs -f devlake
+```
+
+Stop the services without deleting collected data:
+
+```powershell
+docker compose down
+```
+
+Do not add `--volumes` unless you intentionally want to erase the local DevLake database and Grafana state.
 
 Reference documentation:
 

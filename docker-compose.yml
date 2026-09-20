@@ -1,0 +1,79 @@
+name: github-pr-dashboard
+
+services:
+  mysql:
+    image: mysql:8.4.10
+    restart: unless-stopped
+    command:
+      - --character-set-server=utf8mb4
+      - --collation-server=utf8mb4_bin
+      - --skip-log-bin
+    environment:
+      MYSQL_ROOT_PASSWORD: ${MYSQL_ROOT_PASSWORD:?Set MYSQL_ROOT_PASSWORD in .env}
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lake}
+      MYSQL_USER: ${MYSQL_USER:-merico}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      TZ: UTC
+    volumes:
+      - mysql-storage:/var/lib/mysql
+    healthcheck:
+      test:
+        - CMD-SHELL
+        - mysqladmin ping -h localhost -u root -p$$MYSQL_ROOT_PASSWORD --silent
+      interval: 10s
+      timeout: 5s
+      retries: 10
+      start_period: 30s
+
+  devlake:
+    image: apache/devlake:v1.0.3-beta17
+    restart: unless-stopped
+    environment:
+      DB_URL: mysql://${MYSQL_USER:-merico}:${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}@mysql:3306/${MYSQL_DATABASE:-lake}?charset=utf8mb4&parseTime=True&loc=UTC
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Set ENCRYPTION_SECRET in .env}
+      LOGGING_DIR: /app/logs
+      MODE: release
+      PORT: 8080
+      TZ: UTC
+    volumes:
+      - devlake-log:/app/logs
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  grafana:
+    image: apache/devlake-dashboard:v1.0.3-beta17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:3002:3000"
+    environment:
+      GF_SERVER_ROOT_URL: http://localhost:4000/grafana
+      GF_USERS_DEFAULT_THEME: light
+      MYSQL_URL: mysql:3306
+      MYSQL_DATABASE: ${MYSQL_DATABASE:-lake}
+      MYSQL_USER: ${MYSQL_USER:-merico}
+      MYSQL_PASSWORD: ${MYSQL_PASSWORD:?Set MYSQL_PASSWORD in .env}
+      TZ: UTC
+    volumes:
+      - grafana-storage:/var/lib/grafana
+    depends_on:
+      mysql:
+        condition: service_healthy
+
+  config-ui:
+    image: apache/devlake-config-ui:v1.0.3-beta17
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:4000:4000"
+    environment:
+      DEVLAKE_ENDPOINT: devlake:8080
+      GRAFANA_ENDPOINT: grafana:3000
+      TZ: UTC
+    depends_on:
+      - devlake
+      - grafana
+
+volumes:
+  mysql-storage:
+  grafana-storage:
+  devlake-log:
